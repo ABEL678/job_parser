@@ -1,6 +1,7 @@
 import json
 from abc import ABC, abstractmethod
 import requests
+import os
 
 
 class JobAPI(ABC):
@@ -33,6 +34,7 @@ class HeadHunterAPI(JobAPI):
         return response.json()["items"]
 
     def get_vacancies(self, pages_count=1):
+        """Получение списка вакансий с сайта HeadHunter"""
         self.vacancies = []
         for page in range(pages_count):
             page_vacancies = []
@@ -43,6 +45,7 @@ class HeadHunterAPI(JobAPI):
             print(f"Загружено {len(page_vacancies)} вакансий")
 
     def get_form_vacancies(self):
+        """Приведение списка вакансий к единому формату"""
         form_vacancies = []
         for vacancy in self.vacancies:
             form_vacancy = {
@@ -75,7 +78,7 @@ class SuperJobAPI(JobAPI):
             "archived": False
         }
         self.headers = {
-            "X-Api-App-Id": "v3.r.1163755.dbb5b3ada1b9eac5cdf062e50f5a0d9f7191fff1.56a261fc75bd38364d8c5d75dd213dd31a5a4318"
+            "X-Api-App-Id": os.getenv('JOB_API')
         }
         self.vacancies = []
 
@@ -84,6 +87,7 @@ class SuperJobAPI(JobAPI):
         return response.json()["objects"]
 
     def get_vacancies(self, pages_count=1):
+        """Получение списка вакансий с сайта SuperJob"""
         self.vacancies = []
         for page in range(pages_count):
             page_vacancies = []
@@ -94,6 +98,7 @@ class SuperJobAPI(JobAPI):
             print(f"Загружено {len(page_vacancies)} вакансий")
 
     def get_form_vacancies(self):
+        """Приведение списка вакансий к единому формату"""
         form_vacancies = []
         for vacancy in self.vacancies:
             form_vacancy = {
@@ -110,6 +115,7 @@ class SuperJobAPI(JobAPI):
 
 
 class Vacancy:
+    """Создание класса для работы с вакансиями"""
     def __init__(self, vacancy):
         self.employer = vacancy["employer"]
         self.title = vacancy["title"]
@@ -138,6 +144,7 @@ class Vacancy:
 
 
 class JSONSaver:
+    """Создание класса для сохранения и фильтров вакансий"""
     def __init__(self, keyword, vacancies_json):
         self.filename = f"{keyword}.json"
         self.add_vacancy(vacancies_json)
@@ -147,14 +154,28 @@ class JSONSaver:
             json.dump(vacancies_json, file, indent=4)
 
     def select(self):
+        """Вывести список вакансий"""
         with open(self.filename, "r", encoding="utf-8") as file:
             vacancies = json.load(file)
         return [Vacancy(x) for x in vacancies]
 
     def get_vacancies_by_salary(self):
+        """Сортировка по мин. зарплате"""
         desc = True if input(
             "> - DESC \n"
             "< - ASC \n>>> "
         ).lower() == ">" else False
         vacancies = self.select()
         return sorted(vacancies, key=lambda x: (x.salary_from if x.salary_from else 0, x.salary_to if x.salary_to else 0), reverse=desc)
+
+    def filter_vacancies(self, filter_words):
+        """Сортировка по ключевому слову"""
+        filtered_vacancies = []
+        with open(self.filename, "r", encoding="utf-8") as file:
+            vacancies = json.load(file)
+            for vacancy in vacancies:
+                if filter_words in vacancy['title']:
+                    filtered_vacancies.append(vacancy)
+        if not filtered_vacancies:
+            print("Нет вакансий, соответствующих заданным критериям.")
+        return [Vacancy(x) for x in filtered_vacancies]
